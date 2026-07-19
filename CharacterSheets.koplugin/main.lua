@@ -1,5 +1,5 @@
 --[[
-character_sheet.lua — KOReader plugin for advanced character management.
+CharacterSheets.koplugin/main.lua — KOReader plugin for advanced character management.
 
 Provides:
   * Color-coded highlighting of every character name occurrence in EPUB/KEPUB.
@@ -15,7 +15,7 @@ Provides:
 Self-contained: only depends on KOReader's standard `libs` (json, logger, util,
 lfs, datastorage) and native widgets.
 
-Copyright (C) 2024 Character_Sheets contributors
+Copyright (C) 2024 Arararararagi
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published by
