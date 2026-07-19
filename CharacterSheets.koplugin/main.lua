@@ -672,26 +672,33 @@ function ReaderCharacterSheet:init()
     self.char_marks = {}
     self.visible_boxes = {}
 
-    local doc_type = self.document and self.document:getDocumentType()
-    if doc_type and SUPPORTED_DOC_TYPES[doc_type] then
-        self.is_doc_supported = true
-    elseif self.document and self.document.getDocumentType then
-        self.is_doc_supported = (self.document:getDocumentType() == "cre")
-    else
-        self.is_doc_supported = false
-    end
-
-    if self.is_doc_supported and self.document then
-        local holding = self.document:getDocumentHoldingPath()
-        self.db:setPath(holding)
-        self.db:load()
-        self.hm = HighlightManager:new{ doc = self.document, db = self.db, ui = self.ui }
-        self.replacer = TextReplacer:new{ doc = self.document, db = self.db, ui = self.ui, hm = self.hm }
+    -- Register the main-menu entry FIRST so the plugin is always usable,
+    -- even if later document access fails for some reason.
+    if self.ui and self.ui.menu then
+        self.ui.menu:registerToMainMenu(self)
     end
 
     self:onDispatcherRegisterActions()
-    if self.ui and self.ui.menu then
-        self.ui.menu:registerToMainMenu(self)
+
+    -- Detect EPUB/KEPUB by file extension (Document:getDocumentType does
+    -- not exist in KOReader; getFileNameSuffix is what built-ins use).
+    local ext = self.document and util.getFileNameSuffix(self.document.file) or ""
+    self.is_doc_supported = (ext == "epub")
+
+    if self.is_doc_supported and self.document then
+        local ok, err = pcall(function()
+            -- Document:getDocumentHoldingPath does not exist; derive the
+            -- book's directory from its file path instead.
+            local holding = util.splitFilePathName(self.document.file)
+            self.db:setPath(holding)
+            self.db:load()
+            self.hm = HighlightManager:new{ doc = self.document, db = self.db, ui = self.ui }
+            self.replacer = TextReplacer:new{ doc = self.document, db = self.db, ui = self.ui, hm = self.hm }
+        end)
+        if not ok then
+            logger.warn("[CharacterSheet] init doc setup failed:", err)
+            self.is_doc_supported = false
+        end
     end
 end
 
@@ -713,11 +720,19 @@ end
 
 function ReaderCharacterSheet:onReaderReady()
     if not self.is_doc_supported or not self.document then return end
-    local holding = self.document:getDocumentHoldingPath()
-    self.db:setPath(holding)
-    self.db:load()
-    self.hm = HighlightManager:new{ doc = self.document, db = self.db, ui = self.ui }
-    self.replacer = TextReplacer:new{ doc = self.document, db = self.db, ui = self.ui, hm = self.hm }
+    local ok, err = pcall(function()
+        -- Document:getDocumentHoldingPath does not exist; derive the book's
+        -- directory from its file path instead.
+        local holding = util.splitFilePathName(self.document.file)
+        self.db:setPath(holding)
+        self.db:load()
+        self.hm = HighlightManager:new{ doc = self.document, db = self.db, ui = self.ui }
+        self.replacer = TextReplacer:new{ doc = self.document, db = self.db, ui = self.ui, hm = self.hm }
+    end)
+    if not ok then
+        logger.warn("[CharacterSheet] onReaderReady doc setup failed:", err)
+        return
+    end
 
     -- Underline preference (default off).
     local saved = self.ui.doc_settings:readSetting("character_sheet_underline")
