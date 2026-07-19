@@ -4,3 +4,9 @@
 # Editor / OS temp files
 *.swp
 *~
+
+# Reference plugins / full KOReader source (not part of this plugin)
+bookshelf.koplugin/
+foot-cream.koplugin/
+charactertracker.koplugin/
+koreader-master/

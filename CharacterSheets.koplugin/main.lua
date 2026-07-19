@@ -54,7 +54,6 @@ local UIManager = require("ui/uimanager")
 local InputDialog = require("ui/widget/inputdialog")
 local MultiInputDialog = require("ui/widget/multiinputdialog")
 local ButtonDialog = require("ui/widget/buttondialog")
-local ColorPicker = require("ui/widget/colorpicker")
 local FileChooser = require("ui/widget/filechooser")
 local ConfirmBox = require("ui/widget/confirmbox")
 local InfoMessage = require("ui/widget/infomessage")
@@ -84,6 +83,12 @@ pcall(function() Blitbuffer = require("ffi/blitbuffer") end)
 local CHARACTER_DATA_FILENAME = "character_data.json"
 local BATCH_SIZE = 50
 local SUPPORTED_DOC_TYPES = { ["cre"] = true } -- EPUB / KEPUB
+
+-- Preset highlight colors (KOReader has no built-in ColorPicker widget).
+local PRESET_COLORS = {
+    "#FF4500", "#FF8C00", "#FFD700", "#32CD32", "#1E90FF",
+    "#9370DB", "#FF69B4", "#DC143C", "#00CED1", "#8B4513",
+}
 
 -- Role definitions (star rating intentionally excluded).
 local ROLES = {
@@ -651,8 +656,9 @@ end
 -- ---------------------------------------------------------------------------
 -- ReaderCharacterSheet — main ReaderPlugin
 -- ---------------------------------------------------------------------------
-local ReaderCharacterSheet = WidgetContainer:new{
+local ReaderCharacterSheet = WidgetContainer:extend{
     name = "character_sheet",
+    is_doc_only = true,
     is_doc_supported = false,
     char_marks = nil,
     mark_enabled = false,
@@ -1332,18 +1338,78 @@ end
 -- ---------------------------------------------------------------------------
 function ReaderCharacterSheet:showColorPicker(id, on_close)
     local char = self.db:get(id)
-    local picker = ColorPicker:new{
-        title = _("Pick color for ") .. (char and char.display_name or ""),
-        old_color = char and char.color or "#FF4500",
-        callback = function(color)
-            char.color = color
-            self.db:upsert(id, char)
-            self.db:save()
-            self.hm:applyCharacter(self.db:get(id))
-            if on_close then on_close() end
-        end,
+    local buttons = {}
+    local row = {}
+    for _i, color in ipairs(PRESET_COLORS) do
+        row[#row + 1] = {
+            text = "▰", -- ▰
+            align = "center",
+            callback = function()
+                UIManager:close(self._color_dialog)
+                self._color_dialog = nil
+                char.color = color
+                self.db:upsert(id, char)
+                self.db:save()
+                self.hm:applyCharacter(self.db:get(id))
+                if on_close then on_close() end
+            end,
+        }
+        if #row >= 5 then
+            buttons[#buttons + 1] = row
+            row = {}
+        end
+    end
+    if #row > 0 then buttons[#buttons + 1] = row end
+    buttons[#buttons + 1] = {
+        {
+            text = _("Custom hex…"),
+            callback = function()
+                UIManager:close(self._color_dialog)
+                self._color_dialog = nil
+                self:showCustomColorDialog(id, on_close)
+            end,
+        },
     }
-    UIManager:show(picker)
+    self._color_dialog = ButtonDialog:new{
+        title = _("Pick color for ") .. (char and char.display_name or "") ..
+            "  (" .. (char and char.color or "#FF4500") .. ")",
+        buttons = buttons,
+    }
+    UIManager:show(self._color_dialog)
+end
+
+function ReaderCharacterSheet:showCustomColorDialog(id, on_close)
+    local char = self.db:get(id)
+    local d = InputDialog:new{
+        title = _("Custom color (hex)"),
+        input = char.color or "#FF4500",
+        input_hint = "#RRGGBB",
+        buttons = {
+            {
+                { text = _("Cancel"), callback = function() UIManager:close(d) end },
+                {
+                    text = _("Set"),
+                    is_enter_default = true,
+                    callback = function()
+                        local hex = trim(d:getInputText() or "")
+                        UIManager:close(d)
+                        if hex:match("^#%x%x%x%x%x%x$") then
+                            char.color = hex
+                            self.db:upsert(id, char)
+                            self.db:save()
+                            self.hm:applyCharacter(self.db:get(id))
+                            if on_close then on_close() end
+                        else
+                            UIManager:show(InfoMessage:new{
+                                text = _("Invalid hex color. Use #RRGGBB."),
+                            })
+                        end
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(d)
 end
 
 -- ---------------------------------------------------------------------------
