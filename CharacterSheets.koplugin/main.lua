@@ -666,17 +666,19 @@ local ReaderCharacterSheet = WidgetContainer:extend{
 }
 
 function ReaderCharacterSheet:init()
+    logger.info("[CharacterSheet] init() entered; ui=", self.ui ~= nil,
+        "ui.menu=", self.ui and self.ui.menu ~= nil,
+        "document=", self.document ~= nil)
     self.db = CharacterDB:new{}
     self.hm = nil
     self.replacer = nil
     self.char_marks = {}
     self.visible_boxes = {}
+    self._menu_registered = false
 
     -- Register the main-menu entry FIRST so the plugin is always usable,
     -- even if later document access fails for some reason.
-    if self.ui and self.ui.menu then
-        self.ui.menu:registerToMainMenu(self)
-    end
+    self:registerMainMenu()
 
     self:onDispatcherRegisterActions()
 
@@ -684,6 +686,7 @@ function ReaderCharacterSheet:init()
     -- not exist in KOReader; getFileNameSuffix is what built-ins use).
     local ext = self.document and util.getFileNameSuffix(self.document.file) or ""
     self.is_doc_supported = (ext == "epub")
+    logger.info("[CharacterSheet] doc ext=", ext, "is_doc_supported=", self.is_doc_supported)
 
     if self.is_doc_supported and self.document then
         local ok, err = pcall(function()
@@ -699,6 +702,22 @@ function ReaderCharacterSheet:init()
             logger.warn("[CharacterSheet] init doc setup failed:", err)
             self.is_doc_supported = false
         end
+    end
+    logger.info("[CharacterSheet] init() done")
+end
+
+-- Register the reader main-menu entry (idempotent).
+function ReaderCharacterSheet:registerMainMenu()
+    if self._menu_registered then
+        logger.info("[CharacterSheet] registerMainMenu: already registered")
+        return
+    end
+    if self.ui and self.ui.menu then
+        self.ui.menu:registerToMainMenu(self)
+        self._menu_registered = true
+        logger.info("[CharacterSheet] registered to main menu")
+    else
+        logger.warn("[CharacterSheet] registerMainMenu: ui.menu missing, will retry in onReaderReady")
     end
 end
 
@@ -719,7 +738,11 @@ function ReaderCharacterSheet:onShowCharacterList()
 end
 
 function ReaderCharacterSheet:onReaderReady()
+    logger.info("[CharacterSheet] onReaderReady entered; is_doc_supported=", self.is_doc_supported,
+        "document=", self.document ~= nil, "ui.menu=", self.ui and self.ui.menu ~= nil)
     if not self.is_doc_supported or not self.document then return end
+    -- Fallback: ensure the menu is registered (in case init() ran before ui.menu existed).
+    self:registerMainMenu()
     local ok, err = pcall(function()
         -- Document:getDocumentHoldingPath does not exist; derive the book's
         -- directory from its file path instead.
@@ -1799,6 +1822,7 @@ end
 local _meta_name = "character_sheet"
 
 function ReaderCharacterSheet:addToMainMenu(menu_items)
+    logger.info("[CharacterSheet] addToMainMenu called")
     menu_items.character_sheet = {
         text = _("Character Sheet"),
         sub_item_table = {
