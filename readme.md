@@ -39,14 +39,24 @@ port your database between devices — all from KOReader's native menu.
 
 ## Installation
 
-1. Copy `character_sheet.lua` into KOReader's plugin directory on your device:
+KOReader loads plugins from folders whose name ends in `.koplugin`. This
+repository already provides the correct layout:
+
+```
+CharacterSheets.koplugin/
+├── _meta.lua      # plugin metadata (name, version, author, description)
+└── main.lua       # the plugin entry point (returns the ReaderCharacterSheet module)
+```
+
+1. Copy the entire **`CharacterSheets.koplugin/`** folder into KOReader's plugin
+   directory on your device:
 
    ```
-   /mnt/onboard/.adds/koreader/plugins/character_sheet.koplugin/character_sheet.lua
+   /mnt/onboard/.adds/koreader/plugins/CharacterSheets.koplugin/
    ```
 
-   (Place the file inside any `.../plugins/<name>.koplugin/` folder; the exact
-   path varies by device.)
+   (The exact base path varies by device — e.g. `/koreader/plugins/` on some
+   installs. The folder name **must** keep the `.koplugin` suffix.)
 
 2. Restart KOReader (or use *Menu → Gear → Plugins* if hot-reload is available).
    The plugin loads automatically for EPUB/KEPUB documents.
@@ -54,7 +64,9 @@ port your database between devices — all from KOReader's native menu.
 3. Open an EPUB/KEPUB book, open the top-menu gear, and look for **Character Sheet**.
 
 > Only KOReader's standard libraries (`json`, `logger`, `util`, `lfs`,
-> `datastorage`) and native widgets are used — no extra dependencies.
+> `datastorage`) and native widgets are used — no extra dependencies. The
+> `_meta.lua` metadata follows the canonical KOReader plugin convention
+> (see the official `coverbrowser.koplugin` for a reference layout).
 
 ---
 
@@ -178,5 +190,5 @@ was deliberately excluded. Where KOReader's public API differs across versions,
 calls are wrapped in `pcall` and degrade gracefully.
 
 **License:** GNU Affero General Public License v3.0 (AGPL-3.0) — the same
-license used by KOReader. See the license header in `character_sheet.lua` for
-the full text. Contributions welcome.
+license used by KOReader. See the license header in
+`CharacterSheets.koplugin/main.lua` for the full text. Contributions welcome.
